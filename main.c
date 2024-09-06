@@ -4,8 +4,7 @@
 #include "fmt.h"
 
 int main() {
-    long foo = 1;
-    printf("%s %d %.5d %lu\n", "World", 34+35, 21 * 20, foo);
-    ffmt(stdout, "%s %d %.5d %lu\n", "World", 34+35, 21 * 20, foo);
+    int b = 255;
+    fmt("%u = %b\n", b, b);
     return 0;
 }
