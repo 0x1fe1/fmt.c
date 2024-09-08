@@ -81,13 +81,13 @@ int vffmt(FILE* stream, const char* format, va_list args) {
                 continue;
             }
             int j = 1;
-            int flag_hash = 0;
             int val_32 = 0;
             char ch1 = 0;
             char ch2 = 0;
 
             // this loop is required when printing formatted value like 0.2f, when ch1='f' loop ends
             while ((ch1 = token[j++]) <= '9') { }
+            // printf("\nDEBUG: |%s|\n", token);
 
             switch (ch1) {
             case 'i': case 'd': case 'u': case 'h':
