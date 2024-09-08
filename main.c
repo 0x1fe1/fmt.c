@@ -4,7 +4,9 @@
 #include "fmt.h"
 
 int main() {
-    int b = 255;
-    fmt("%u = %b\n", b, b);
+    fmt("%s\n", "Hello, Sailor!");
+
+    int b = 420;
+    fmt("%i =\n= %x = %X = %#x = %#X =\n= %o = %#o =\n= %b = %#b\n", b,b,b,b,b,b,b,b,b);
     return 0;
 }

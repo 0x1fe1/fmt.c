@@ -1,132 +1,188 @@
+/*
+USAGE:
+    int result = fmt("format string", ...); // Print to STDOUT
+    int result = ffmt(FILE* stream, "format string", ...); // Print to `stream`
+    int result = vffmt(FILE* stream, "format string", va_list); // Print to `stream`, uses va_list
+
+SUPPORTED FORMATS:
+    %i  %d  %u  %h - integers.
+    %l? %L?        - long integer (? is either one of [idu]).
+    %f  %lf %Lf    - float, double and long double.
+    %c  %s         - char and string.
+    %b  %o  %x  %X - binary, octal and hex. These also support # for alternative notation.
+                       (e.g. %#b -> 0b1000101)
+
+EXAMPLE:
+  main.c:
+    #define FMT_IMPL // ONLY IN _ONE_ FILE!
+    #include "fmt.h"
+
+    int main() {
+        fmt("%s\n", "Hello, Sailor!");
+
+        int b = 420;
+        fmt("%i =\n= %x = %X = %#x = %#X =\n= %o = %#o =\n= %b = %#b\n", b,b,b,b,b,b,b,b,b);
+        return 0;
+    }
+
+  compile and run:
+  $ gcc main.c -o out && ./out
+*/
+
+
 #ifndef FMT_HEADER
 #define FMT_HEADER
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdint.h>
 
 extern int fmt(const char* format, ...);
 extern int ffmt(FILE* output, const char* format, ...);
+extern int vffmt(FILE* output, const char* format, va_list args);
 
 #ifdef FMT_IMPL
 
-#define fmt(format, ...) ffmt(stdout, format, __VA_ARGS__)
+int fmt(const char* format, ...) {
+    int result;
+    va_list args;
 
-// int fmt(const char* format, ...) {
-//     int result;
-//     va_list args;
-//
-//     va_start(args, format);
-//     result = ffmt(stdout, format, args);
-//     va_end(args);
-//
-//     return result;
-// }
+    va_start(args, format);
+    result = vffmt(stdout, format, args);
+    va_end(args);
 
-int ffmt(FILE* output, const char* str, ...) {
+    return result;
+}
+
+int ffmt(FILE* output, const char* format, ...) {
+    int result;
+    va_list args;
+
+    va_start(args, format);
+    result = vffmt(output, format, args);
+    va_end(args);
+
+    return result;
+}
+
+int vffmt(FILE* stream, const char* format, va_list args) {
     int result = 0;
-    va_list ptr;
-    va_start(ptr, str);
-
     char token[1024];
-    // index of where to store the characters of str in token
+    // index of where to store the characters of format in token
     int k = 0;
 
-    for (int i = 0; str[i] != '\0'; i++) {
-        token[k++] = str[i];
+    for (int i = 0; format[i] != '\0'; i++) {
+        token[k++] = format[i];
 
-        if (str[i+1] == '%' || str[i+1] == '\0') {
+        if (format[i+1] == '%' || format[i+1] == '\0') {
             token[k] = '\0';
             k = 0;
             if (token[0] != '%') {
-                fprintf(output, "%s", token);
-            } else {
-                int j = 1;
-                char ch1 = 0;
-                char ch2 = 0;
+                fprintf(stream, "%s", token);
+                continue;
+            }
+            int j = 1;
+            int flag_hash = 0;
+            int32_t val_32 = 0;
+            char ch1 = 0;
+            char ch2 = 0;
 
-                // this loop is required when printing formatted value like 0.2f, when ch1='f' loop ends
-                while ((ch1 = token[j++]) <= '9') { }
+            // this loop is required when printing formatted value like 0.2f, when ch1='f' loop ends
+            while ((ch1 = token[j++]) <= '9') { }
 
-                switch (ch1) {
-                case 'i':
-                case 'd':
-                case 'u':
-                case 'h':
-                    fprintf(output, token, va_arg(ptr, int));
+            switch (ch1) {
+            case 'i': case 'd': case 'u': case 'h':
+                fprintf(stream, token, va_arg(args, int32_t));
+                break;
+
+            case 'c':
+                fprintf(stream, token, va_arg(args, int32_t));
+                break;
+
+            case 'f':
+                fprintf(stream, token, va_arg(args, double));
+                break;
+
+            case 'l':
+                switch (token[2]) {
+                case 'u': case 'd': case 'i':
+                    fprintf(stream, token, va_arg(args, long));
                     break;
-
-                case 'c':
-                    fprintf(output, token, va_arg(ptr, int));
-                    break;
-
                 case 'f':
-                    fprintf(output, token, va_arg(ptr, double));
-                    break;
-
-                case 'l':
-                    ch2 = token[2];
-                    if (ch2 == 'u' || ch2 == 'd' || ch2 == 'i') {
-                        fprintf(output, token, va_arg(ptr, long));
-                    } else if (ch2 == 'f') {
-                        fprintf(output, token, va_arg(ptr, double));
-                    }
-                    break;
-
-                case 'L':
-                    ch2 = token[2];
-                    if (ch2 == 'u' || ch2 == 'd' || ch2 == 'i') {
-                        fprintf(output, token, va_arg(ptr, long long));
-                    } else if (ch2 == 'f') {
-                        fprintf(output, token, va_arg(ptr, long double));
-                    }
-                    break;
-
-                case 'b':
-                    ch2 = token[2];
-
-                    int bitwidth = 0;
-                    int binary_value_int = 0;
-                    long binary_value_long = 0;
-                    long long binary_value_longlong = 0;
-
-                    if (ch2 == 'i' || ch2 == '\n') {
-                        bitwidth = 32;
-                        int binary_value_int = va_arg(ptr, int);
-                    } else {
-                        break;
-                    }
-
-
-                    for (int bi = bitwidth-1; bi >= 0; bi--) {
-                        int bit = (binary_value_int >> bi) & 1;
-                        fprintf(output, "%d", bit);
-                        if (bi % 4 == 0) fprintf(output, " ");
-                    }
-
-                    if (token[2] == '\n' || token[3] == '\n') fprintf(output, "\n");
-                    break;
-
-                case 's':
-                    fprintf(output, token, va_arg(ptr, char*));
-                    break;
-
-                default:
-                    fprintf(stderr, "ERROR: Unrecognized format: %s\n", token);
-                    return 1;
+                    fprintf(stream, token, va_arg(args, double));
                     break;
                 }
+                break;
+
+            case 'L':
+                switch (token[2]) {
+                case 'u': case 'd': case 'i':
+                    fprintf(stream, token, va_arg(args, long long));
+                    break;
+                case 'f':
+                    fprintf(stream, token, va_arg(args, long double));
+                    break;
+                }
+                break;
+
+            case 'b':
+                int32_t bitwidth = 32;
+                val_32 = va_arg(args, int32_t);
+
+                char flag_start = 0;
+                for (int nibble_index = 0; nibble_index < bitwidth/4; nibble_index++) {
+                    char nibble = (val_32 >> (bitwidth - nibble_index*4 - 4)) & 0xF;
+                    if (flag_start == 0 && nibble == 0) { continue; } else { flag_start = 1; }
+                    fprintf(stream, "%04b", nibble);
+                    if (token[1] == '#' && nibble_index < bitwidth/4 - 1) fprintf(stream, "_");
+                }
+
+                fprintf(stream, "%s", token + j);
+                break;
+
+            case 'o':
+                val_32 = va_arg(args, int32_t);
+                if (token[1] == '#') fprintf(stream, "%#o", val_32);
+                else fprintf(stream, "%o", val_32);
+
+                fprintf(stream, "%s", token + j);
+                break;
+
+            case 'x':
+                val_32 = va_arg(args, int32_t);
+                if (token[1] == '#') fprintf(stream, "%#x", val_32);
+                else fprintf(stream, "%x", val_32);
+
+                fprintf(stream, "%s", token + j);
+                break;
+            case 'X':
+                val_32 = va_arg(args, int32_t);
+                if (token[1] == '#') fprintf(stream, "%#X", val_32);
+                else fprintf(stream, "%X", val_32);
+
+                fprintf(stream, "%s", token + j);
+                break;
+
+            case 's':
+                fprintf(stream, token, va_arg(args, char*));
+                break;
+
+            default:
+                // unable to fallback to default printf because of type ambiguity
+                fprintf(stderr, "ERROR: Unrecognized format: %s\n", token);
+                fprintf(stream, "%s", token);
+                break;
             }
         }
     }
 
-    va_end(ptr);
     return result;
 }
 
 #endif // FMT_IMPL
 #endif // FMT_HEADER
 
-/*
+/* DO NOT LOOK HERE!
 
 from https://alvinalexander.com/programming/printf-format-cheat-sheet
 
