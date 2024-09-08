@@ -35,7 +35,6 @@ EXAMPLE:
 
 #include <stdio.h>
 #include <stdarg.h>
-#include <stdint.h>
 
 extern int fmt(const char* format, ...);
 extern int ffmt(FILE* output, const char* format, ...);
@@ -83,7 +82,7 @@ int vffmt(FILE* stream, const char* format, va_list args) {
             }
             int j = 1;
             int flag_hash = 0;
-            int32_t val_32 = 0;
+            int val_32 = 0;
             char ch1 = 0;
             char ch2 = 0;
 
@@ -92,11 +91,11 @@ int vffmt(FILE* stream, const char* format, va_list args) {
 
             switch (ch1) {
             case 'i': case 'd': case 'u': case 'h':
-                fprintf(stream, token, va_arg(args, int32_t));
+                fprintf(stream, token, va_arg(args, int));
                 break;
 
             case 'c':
-                fprintf(stream, token, va_arg(args, int32_t));
+                fprintf(stream, token, va_arg(args, int));
                 break;
 
             case 'f':
@@ -126,14 +125,17 @@ int vffmt(FILE* stream, const char* format, va_list args) {
                 break;
 
             case 'b':
-                int32_t bitwidth = 32;
-                val_32 = va_arg(args, int32_t);
+                int bitwidth = 32;
+                val_32 = va_arg(args, int);
 
                 char flag_start = 0;
                 for (int nibble_index = 0; nibble_index < bitwidth/4; nibble_index++) {
                     char nibble = (val_32 >> (bitwidth - nibble_index*4 - 4)) & 0xF;
                     if (flag_start == 0 && nibble == 0) { continue; } else { flag_start = 1; }
-                    fprintf(stream, "%04b", nibble);
+                    fprintf(stream, "%i", (nibble >> 3) & 1);
+                    fprintf(stream, "%i", (nibble >> 2) & 1);
+                    fprintf(stream, "%i", (nibble >> 1) & 1);
+                    fprintf(stream, "%i", (nibble >> 0) & 1);
                     if (token[1] == '#' && nibble_index < bitwidth/4 - 1) fprintf(stream, "_");
                 }
 
@@ -141,7 +143,7 @@ int vffmt(FILE* stream, const char* format, va_list args) {
                 break;
 
             case 'o':
-                val_32 = va_arg(args, int32_t);
+                val_32 = va_arg(args, int);
                 if (token[1] == '#') fprintf(stream, "%#o", val_32);
                 else fprintf(stream, "%o", val_32);
 
@@ -149,14 +151,14 @@ int vffmt(FILE* stream, const char* format, va_list args) {
                 break;
 
             case 'x':
-                val_32 = va_arg(args, int32_t);
+                val_32 = va_arg(args, int);
                 if (token[1] == '#') fprintf(stream, "%#x", val_32);
                 else fprintf(stream, "%x", val_32);
 
                 fprintf(stream, "%s", token + j);
                 break;
             case 'X':
-                val_32 = va_arg(args, int32_t);
+                val_32 = va_arg(args, int);
                 if (token[1] == '#') fprintf(stream, "%#X", val_32);
                 else fprintf(stream, "%X", val_32);
 
